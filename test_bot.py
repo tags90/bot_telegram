@@ -1,218 +1,193 @@
-# THƯ VIỆN ====================================================================================================================================================================================================================
-import os, time, sys, logging, colorama
-import pyautogui
+import logging, sys, os, pyautogui, requests
 from colorama import Fore
-from telegram import Update, ReplyKeyboardMarkup, ForceReply
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, ForceReply, KeyboardButton
+from telegram.ext import CommandHandler, ContextTypes, Application
+from bot_telegram.test_bot_variable import *
 
-# HẰNG SỐ VÀ BIẾN =============================================================================================================================================================================================================
-TOKEN = "7203394666:AAF8lmq-rOP0SOngT3C6KnPVShdazq0R5vk"
-ADMIN = []
-ALLOWED_USER = [1, 2, 3, 4, 5, 6]
-BANNED_USER = []
-
-POS1 = (1280, 720)
-POS2 = (1280, 740)
-POS3 = (1280, 760)
-POS4 = (1280, 780)
-POS5 = (1280, 800)
-POS6 = (1280, 820)
-
-RUNNING = False
-LOGIN = False
-
-# TẠO LOG VÀ DANH SÁCH MENU ===================================================================================================================================================================================================
-logging.basicConfig(format=Fore.WHITE + "%(asctime)s  - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format= Fore.BLUE + "%(asctime)s  - %(levelname)s - %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logger = logging.getLogger()
+bot_log = logging.getLogger()
 
-def get_menu_keyboard() -> None:
-    for element in BANNED_USER or ADMIN or ALLOWED_USER:
-        if element in BANNED_USER:
-            None
-        elif element in ADMIN:
-            keyboard = [['/start'], ['/help_register'], ['/check_your_ID'], ['/reset']]
-            return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        elif element in ALLOWED_USER:
-            keyboard = [['/login'], ['/help'], ['/on'], ['/off']] 
-            return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        else:
-            keyboard = [['/check']]
-            return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)        
-
-# LỜI MỞ ĐẦU ==================================================================================================================================================================================================================
-# Khởi động con bot kèm thông tin tác giả
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        await update.message.reply_html("CHÀO MỪNG BẠN ĐÃ ĐẾN VỚI ... CỦA \nSử dụng lệnh /check để kiểm tra thông tin tài khoản", reply_markup=get_menu_keyboard())
-        logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} đã khởi động")
-    except SyntaxError:
-        await update.message.reply_html("Lỗi", reply_markup=get_menu_keyboard())
-        logger.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} Lỗi")
+        if update.message.from_user.id in USER_BLACK_LIST:
+            await update.message.reply_html(f"{update.message.from_user.name} Bạn đã bi chặn", reply_markup=ForceReply(selective=True))
+            bot_log.error(Fore.RED + f"{update.message.from_user.name} {update.message.from_user.id} đã dùng thành công lệnh /start")
+        elif update.message.from_user.id in USER_ADMIN:
+            await update.message.reply_html("Chào mừng bạn đã đến với ...\nBạn hiện tại là ADMIN\n/login để tiến hành đăng nhập\n/help để xem hướng dẫn", reply_markup=ForceReply(selective=True))
+            bot_log.info(Fore.GREEN + f"[ROLE: Admin] Admin: {update.message.from_user.name} ID: {update.message.from_user.id} đã dùng thành công lệnh /start")
+        elif update.message.from_user.id in USER_WHITE_LIST:
+            await update.message.reply_html("Chào mừng bạn đã đến với ...\nBạn hiện tại là người được ưu tiên\n/login để tiến hành đăng nhập\n/help để xem hướng dẫn", reply_markup=ForceReply(selective=True))
+            bot_log.info(Fore.GREEN + f"[ROLE: Helper] Người dùng: {update.message.from_user.name} {update.message.from_user.id} đã dùng thành công lệnh /start")
+        elif update.message.from_user.id in USER_ALLOW_LIST:
+            await update.message.reply_html("Chào mừng bạn đã đến với ...\nBạn đã xác thực\n/login để tiến hành đăng nhập\n/help để xem hướng dẫn", reply_markup=ForceReply(selective=True))
+            bot_log.info(Fore.GREEN + f"[ROLE: Người dùng] Người dùng: {update.message.from_user.name} {update.message.from_user.id} đã dùng thành công lệnh /start")
+        else:
+            await update.message.reply_html("Không có quyền sử dụng\nVui lòng sử dụng /check để báo lại cho Admin tiến hành sử dụng bot", reply_markup=ForceReply(selective=True))
+            bot_log.info(Fore.GREEN + f"[Người lạ] Người dùng: {update.message.from_user.name} {update.message.from_user.id} đã dùng thành công lệnh /start")
 
-# Check ID Telegram để đăng kí
+    except SyntaxError:
+        await update.message.reply_html("Lỗi khi từ khi bắt đầu", reply_markup=ForceReply(selective=True))
+        bot_log.info(Fore.GREEN + f"Người dùng: {update.message.from_user.name} {update.message.from_user.id} đã gặp lỗi khi dùng lệnh /start")
+
 async def check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        logger.info(f"{update.message.from_user.id} {update.message.from_user.name} đang check ID")
-        if update.message.from_user.id in BANNED_USER:
-            await update.message.reply_html(f"{update.message.from_user.name} à bạn đã bị chặn, vui lòng liên hệ lại để gỡ lệnh cấm", reply_markup=ForceReply(selective=True))
-            logger.critical(Fore.RED + f"BAN {update.message.from_user.id} {update.message.from_user.name} đã chặn thành công")
-        elif update.message.from_user.id in ADMIN:
-            await update.message.reply_html(f"[ROLE: ADMIN] {update.message.from_user.name}, hãy sử dụng /login để bắt đầu công cụ", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.LIGHTMAGENTA_EX + f"[ROLE: ADMIN] {update.message.from_user.id} {update.message.from_user.name} đã dùng lệnh /check")
-        elif update.message.from_user.id in ALLOWED_USER:
-            await update.message.reply_html(f"[ROLE: USERS] {update.message.from_user.name}, Bạn hiện tại có thể đăng nhập, hãy sử dụng /login để bắt đầu công cụ", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"[ROLE: USER] {update.message.from_user.id} {update.message.from_user.name} đã dùng lệnh /check")
+        if USER_LOGIN == False:
+            await update.message.reply_html(f"ID hiện tại của bạn là {update.message.from_user.id}\nVui lòng không chia sẻ ID này với bất kỳ ai\nHãy gửi ID này cho Admin tiến hành xác thực", reply_markup=ForceReply(selective=True))
+            bot_log.info(Fore.GREEN + f"{update.message.from_user.name} {update.message.from_user.id} đã dùng thành công lệnh /check")
         else:
-            await update.message.reply_html(f"{update.message.from_user.id} - Bạn vui lòng xác nhận để đăng ký bot", reply_markup=ForceReply(selective=True))
-            logger.warning(Fore.YELLOW + f"Người lạ {update.message.from_user.id} {update.message.from_user.name} đã dùng lệnh /check")
+            await update.message.reply_html(f"Bạn đã xác thực rồi", reply_markup=ForceReply(selective=True))
+            bot_log.info(Fore.GREEN + f"{update.message.from_user.name} {update.message.from_user.id} đã dùng thành công lệnh /check")
     except SyntaxError:
-        await update.message.reply_html("Lỗi", reply_markup=get_menu_keyboard())
-        logger.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} Lỗi")
+        await update.message.reply_html("", reply_markup=ForceReply(selective=True))
+        bot_log.error(Fore.RED + f"{update.message.from_user.name} {update.message.from_user.id} đã gặp lỗi khi dùng lệnh /check")
 
-# Chính =======================================================================================================================================================================================================================
-# Bắt đầu sử dụng
 async def login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global LOGIN
+    try:
+        global USER_LOGIN
     # Kiểm tra tài khoản bị chặn
-    if update.message.from_user.id in BANNED_USER:
-        await update.message.reply_html(f"{update.message.from_user.name} - Bạn đã bị chặn", reply_markup=ForceReply(selective=True))
-        logger.critical(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đã bị chặn")    
+        if update.message.from_user.id in USER_BLACK_LIST:
+            await update.message.reply_html(f"{update.message.from_user.name} - Bạn đã bị chặn", reply_markup=ForceReply(selective=True))
+            bot_log.critical(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đã bị chặn")    
     # kiểm tra tài khoản
-    elif update.message.from_user.id in ADMIN:
-        LOGIN = True
-        await update.message.reply_html("Sử dụng /help để xem lệnh ADMIN", reply_markup=ForceReply(selective=True))
-        logger.info(Fore.LIGHTMAGENTA_EX + f"{update.message.from_user.id} {update.message.from_user.name} - ADMIN đã đăng Nhập")
-    elif update.message.from_user.id in ALLOWED_USER:        
-        LOGIN = True
-        await update.message.reply_html("Sử dụng /help để biết thêm chi tiết", reply_markup=ForceReply(selective=True))
-        logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đã đăng Nhập")
-    else:
-        await update.message.reply_html("Thất bại!\n\nHiện tại bạn chưa đăng kí sử dụng bot.\n Sử dụng /check để báo ADMIN về ID hiện tại của bạn để tiến hành đăng kí", reply_markup=ForceReply(selective=True))
-        logger.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đang cố đăng nhập")
-
-# Dev Phụ Của ADMIN
-
-# reset bot
-# delete history chat
-
-# Hướng dẫn
-async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if LOGIN == True:
-        if update.message.from_user.id in ADMIN:
-            await update.message.reply_html("Thành Công ADMIN", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.LIGHTMAGENTA_EX + f"{update.message.from_user.id} {update.message.from_user.name} - ADMIN đã dùng lệnh /check")
+        elif update.message.from_user.id in USER_ADMIN:
+            USER_LOGIN = True
+            await update.message.reply_html("Sử dụng /help để xem lệnh ADMIN", reply_markup=ForceReply(selective=True))
+            bot_log.info(Fore.LIGHTMAGENTA_EX + f"{update.message.from_user.id} {update.message.from_user.name} - ADMIN đã đăng Nhập")
+        elif update.message.from_user.id in USER_ALLOW_LIST:        
+            USER_LOGIN = True
+            await update.message.reply_html("Sử dụng /help để biết thêm chi tiết", reply_markup=ForceReply(selective=True))
+            bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đã đăng Nhập")
         else:
-            await update.message.reply_html("Thành Công USERs", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đã dùng lệnh /help")            
-    else:
-        await update.message.reply_html("Bạn vui lòng xác nhận để đăng ký bot", reply_markup=ForceReply(selective=True))
-        logger.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đang cố dùng lệnh /help")
+            await update.message.reply_html("Thất bại!\n\nHiện tại bạn chưa đăng kí sử dụng bot.\n Sử dụng /check để báo ADMIN về ID hiện tại của bạn để tiến hành đăng kí", reply_markup=ForceReply(selective=True))
+            bot_log.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đang cố đăng nhập")
+    except SyntaxError:
+        await update.message.reply_html("", reply_markup=ForceReply(selective=True))
+        bot_log.error(Fore.RED + f"{update.message.from_user.name} {update.message.from_user.id} đã gặp lỗi khi dùng lệnh /empty")
 
-# Bật Tools
 async def on(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global RUNNING
-    logger.warning(Fore.YELLOW + f"{update.message.from_user.id} {update.message.from_user.name} đã dùng lệnh /on")
-    if LOGIN == True:
-        RUNNING = True
-        if update.message.from_user.id == ALLOWED_USER[0]:
-            pyautogui.leftClick(POS1)
-            await update.message.reply_html("Sử dụng thành công", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS1}")
-        elif update.message.from_user.id == ALLOWED_USER[1]:
-            pyautogui.leftClick(POS2)
-            await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS2}")
-        elif update.message.from_user.id == ALLOWED_USER[2]:
-            pyautogui.leftClick(POS3)
-            await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS3}")
-        elif update.message.from_user.id == ALLOWED_USER[3]:
-            pyautogui.leftClick(POS4)
-            await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS4}")
-        elif update.message.from_user.id == ALLOWED_USER[4]:
-            pyautogui.leftClick(POS5)
-            await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS5}")
-        elif update.message.from_user.id == ALLOWED_USER[5]:
-            pyautogui.leftClick(POS6)
-            await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS6}")
-        else:
-            await update.message.reply_html("Lỗi không tìm thấy trong danh sách hiện tại", reply_markup=ForceReply(selective=True))
-            logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - sử dụng không thành công vì không nắm trong danh sách")
-    else:
-        await update.message.reply_html("Không có quyền được truy cập", reply_markup=ForceReply(selective=True))
-        logger.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} người dùng đã sử dụng /on khi chưa cấp quyền")
-
-async def off(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global RUNNING
-    if LOGIN == True:        
-        if RUNNING == True:
-            RUNNING = False
-            if update.message.from_user.id == ALLOWED_USER[0]:
+    try:
+        global USER_RUNNING
+        bot_log.warning(Fore.YELLOW + f"{update.message.from_user.id} {update.message.from_user.name} đã dùng lệnh /on")
+        if USER_LOGIN == True:
+            USER_RUNNING = True
+            if update.message.from_user.id == USER_ALLOW_LIST[0]:
                 pyautogui.leftClick(POS1)
-                await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS1}")             
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS1}")
-            elif update.message.from_user.id == ALLOWED_USER[1]:
+                await update.message.reply_html("Sử dụng thành công", reply_markup=ForceReply(selective=True))
+                bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS1}")
+            elif update.message.from_user.id == USER_ALLOW_LIST[1]:
                 pyautogui.leftClick(POS2)
                 await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS2}")
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS2}")
-            elif update.message.from_user.id == ALLOWED_USER[2]:
+                bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS2}")
+            elif update.message.from_user.id == USER_ALLOW_LIST[2]:
                 pyautogui.leftClick(POS3)
                 await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS3}")
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS3}")
-            elif update.message.from_user.id == ALLOWED_USER[3]:
+                bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS3}")
+            elif update.message.from_user.id == USER_ALLOW_LIST[3]:
                 pyautogui.leftClick(POS4)
                 await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS4}")
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS4}")
-            elif update.message.from_user.id == ALLOWED_USER[4]:
+                bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS4}")
+            elif update.message.from_user.id == USER_ALLOW_LIST[4]:
                 pyautogui.leftClick(POS5)
                 await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS5}")
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS5}")                
-            elif update.message.from_user.id == ALLOWED_USER[5]:
+                bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS5}")
+            elif update.message.from_user.id == USER_ALLOW_LIST[5]:
                 pyautogui.leftClick(POS6)
                 await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS6}")
-                logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS6}")
+                bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã bật tại vị trí {POS6}")
             else:
-                await update.message.reply_html("Lỗi không nằm trong danh sách", reply_markup=ForceReply(selective=True))
-                logger.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} sử dụng không thành công vì không nắm trong danh sách")            
+                await update.message.reply_html("Lỗi không tìm thấy trong danh sách hiện tại", reply_markup=ForceReply(selective=True))
+                bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - sử dụng không thành công vì không nắm trong danh sách")
         else:
-            await update.message.reply_html("Nên bật trước khi tắt", reply_markup=ForceReply(selective=True))
-            logger.warning(Fore.YELLOW + f"{update.message.from_user.id} {update.message.from_user.name} sử dụng lệnh /off trước khi bật")        
-    else:
-        await update.message.reply_html("Không có quyền được truy cập", reply_markup=ForceReply(selective=True))
-        logger.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} người dùng này đã sử dụng /off khi chưa cấp quyền")
+            await update.message.reply_html("Không có quyền được truy cập", reply_markup=ForceReply(selective=True))
+            bot_log.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} người dùng đã sử dụng /on khi chưa cấp quyền")
+    except SyntaxError:
+        await update.message.reply_html("", reply_markup=ForceReply(selective=True))
+        bot_log.error(Fore.RED + f"{update.message.from_user.name} {update.message.from_user.id} đã gặp lỗi khi dùng lệnh /on")
+
+async def off(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        global USER_RUNNING
+        if USER_LOGIN == True:        
+            if USER_RUNNING == True:
+                USER_RUNNING = False
+                if update.message.from_user.id == USER_ALLOW_LIST[0]:
+                    pyautogui.leftClick(POS1)
+                    await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS1}")             
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS1}")
+                elif update.message.from_user.id == USER_ALLOW_LIST[1]:
+                    pyautogui.leftClick(POS2)
+                    await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS2}")
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS2}")
+                elif update.message.from_user.id == USER_ALLOW_LIST[2]:
+                    pyautogui.leftClick(POS3)
+                    await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS3}")
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS3}")
+                elif update.message.from_user.id == USER_ALLOW_LIST[3]:
+                    pyautogui.leftClick(POS4)
+                    await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS4}")
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS4}")
+                elif update.message.from_user.id == USER_ALLOW_LIST[4]:
+                    pyautogui.leftClick(POS5)
+                    await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS5}")
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS5}")                
+                elif update.message.from_user.id == USER_ALLOW_LIST[5]:
+                    pyautogui.leftClick(POS6)
+                    await update.message.reply_html("Sử dụng lệnh thành công", reply_markup=ForceReply(selective=True))
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - đã tắt tại vị trí {POS6}")
+                    bot_log.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Tắt thành công {POS6}")
+                else:
+                    await update.message.reply_html("Lỗi không nằm trong danh sách", reply_markup=ForceReply(selective=True))
+                    bot_log.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} sử dụng không thành công vì không nắm trong danh sách")            
+            else:
+                await update.message.reply_html("Nên bật trước khi tắt", reply_markup=ForceReply(selective=True))
+                bot_log.warning(Fore.YELLOW + f"{update.message.from_user.id} {update.message.from_user.name} sử dụng lệnh /off trước khi bật")        
+        else:
+            await update.message.reply_html("Không có quyền được truy cập", reply_markup=ForceReply(selective=True))
+            bot_log.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} người dùng này đã sử dụng /off khi chưa cấp quyền")
+    except SyntaxError:
+        await update.message.reply_html("", reply_markup=ForceReply(selective=True))
+        bot_log.error(Fore.RED + f"{update.message.from_user.name} {update.message.from_user.id} đã gặp lỗi khi dùng lệnh /empty")
+ 
+async def screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        pyautogui.screenshot(region=POS1())
+        file = {"photo":open("","rb")}
+        r = requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto?chat_id={CHAT_ID}", files=file)
+        bot_log.info(r.status_code)
+    except SyntaxError:
+        await update.message.reply_html("", reply_markup=ForceReply(selective=True))
+        bot_log.error(Fore.RED + f"{update.message.from_user.name} {update.message.from_user.id} đã gặp lỗi khi dùng lệnh /empty")
+
+async def empty(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        await update.message.reply_html("", reply_markup=ForceReply(selective=True))
+        bot_log.info(Fore.GREEN + f"{update.message.from_user.name} {update.message.from_user.id} đã dùng thành công lệnh /empty")
+    except SyntaxError:
+        await update.message.reply_html("", reply_markup=ForceReply(selective=True))
+        bot_log.error(Fore.RED + f"{update.message.from_user.name} {update.message.from_user.id} đã gặp lỗi khi dùng lệnh /empty")
+ 
+
+
+
+def main () -> None:
+    bot = Application.builder().token(TOKEN).build()
+
     
+    bot.add_handler(CommandHandler("start", start))
+    bot.add_handler(CommandHandler("check", check))
+    bot.add_handler(CommandHandler("login", login))
+    bot.add_handler(CommandHandler("on", on))
+    bot.add_handler(CommandHandler("off", off))
+    bot.add_handler(CommandHandler("exit", exit))
+    # bot.add_handler(CommandHandler("empty", empty))
 
-
-# logger.info(Fore.LIGHTYELLOW_EX + f"{update.message.from_user.id} {update.message.from_user.name} - ADMIN đã dùng lệnh")
-# logger.info(Fore.GREEN + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đã dùng lệnh")
-# logger.warning(Fore.YELLOW + f"{update.message.from_user.id} {update.message.from_user.name} - Người lạ đã dùng lệnh")
-# logger.error(Fore.RED + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đang cố dùng lệnh")
-# logger.critical(Fore.LIGHTMAGENTA_EX + f"{update.message.from_user.id} {update.message.from_user.name} - Người dùng đã bị chặn")
-
-# MAIN CHÍNH ==================================================================================================================================================================================================================
-
-def main() -> None:
-    
-    app = Application.builder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("check", check))
-    app.add_handler(CommandHandler("login", login))     
-    app.add_handler(CommandHandler("help", help))
-    app.add_handler(CommandHandler("on", on))
-    app.add_handler(CommandHandler("off", off))
-
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    bot.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
